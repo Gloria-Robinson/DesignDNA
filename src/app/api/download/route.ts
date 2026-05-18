@@ -8,9 +8,14 @@ export const runtime = 'nodejs';
 const SESSION_PATTERN = /^\d+-[a-z0-9-]+$/i;
 
 const FILE_MAP = {
-  design: { filename: 'design.md', mime: 'text/markdown' },
-  prompt: { filename: 'prompt.md', mime: 'text/markdown' },
-  screenshot: { filename: 'screenshot.png', mime: 'image/png' },
+  design:    { filename: 'design.md',    mime: 'text/markdown' },
+  prompt:    { filename: 'prompt.md',    mime: 'text/markdown' },
+  screenshot:{ filename: 'screenshot.png', mime: 'image/png' },
+  'frame-0': { filename: 'frame-0.jpg',  mime: 'image/jpeg' },
+  'frame-1': { filename: 'frame-1.jpg',  mime: 'image/jpeg' },
+  'frame-2': { filename: 'frame-2.jpg',  mime: 'image/jpeg' },
+  'frame-3': { filename: 'frame-3.jpg',  mime: 'image/jpeg' },
+  'frame-4': { filename: 'frame-4.jpg',  mime: 'image/jpeg' },
 } as const;
 
 type FileParam = keyof typeof FILE_MAP;

@@ -9,12 +9,35 @@ interface DownloadButtonsProps {
 }
 
 export function DownloadButtons({ sessionId, designMdContent, promptMdContent }: DownloadButtonsProps) {
-  const [copiedDesign, setCopiedDesign] = useState(false);
-  const [copiedPrompt, setCopiedPrompt] = useState(false);
+  const [copiedDesign, setCopiedDesign]     = useState(false);
+  const [copiedPrompt, setCopiedPrompt]     = useState(false);
+  const [downloadingFrames, setDownloadingFrames] = useState(false);
 
-  const designUrl     = `/api/download?sessionId=${encodeURIComponent(sessionId)}&file=design`;
-  const promptUrl     = `/api/download?sessionId=${encodeURIComponent(sessionId)}&file=prompt`;
-  const screenshotUrl = `/api/download?sessionId=${encodeURIComponent(sessionId)}&file=screenshot`;
+  const designUrl = `/api/download?sessionId=${encodeURIComponent(sessionId)}&file=design`;
+  const promptUrl = `/api/download?sessionId=${encodeURIComponent(sessionId)}&file=prompt`;
+
+  async function downloadFrames() {
+    setDownloadingFrames(true);
+    try {
+      for (let i = 0; i < 5; i++) {
+        const url = `/api/download?sessionId=${encodeURIComponent(sessionId)}&file=frame-${i}`;
+        const res = await fetch(url);
+        if (!res.ok) continue;
+        const blob = await res.blob();
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `section-${i + 1}-of-5.jpg`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(a.href);
+        // Small delay so the browser registers each download separately
+        await new Promise<void>(r => setTimeout(r, 400));
+      }
+    } finally {
+      setDownloadingFrames(false);
+    }
+  }
 
   async function copyText(text: string, setDone: (v: boolean) => void) {
     try {
@@ -48,11 +71,14 @@ export function DownloadButtons({ sessionId, designMdContent, promptMdContent }:
         >
           <DownloadIcon /> prompt.md
         </a>
-        <a href={screenshotUrl} download="screenshot.png"
-          className="liquid-glass rounded-full h-9 px-5 text-xs font-medium text-white/70 flex items-center gap-2 hover:scale-105 active:scale-95 transition-transform duration-150"
+        <button
+          onClick={downloadFrames}
+          disabled={downloadingFrames}
+          className="liquid-glass rounded-full h-9 px-5 text-xs font-medium text-white/70 flex items-center gap-2 hover:scale-105 active:scale-95 transition-transform duration-150 disabled:opacity-50 disabled:cursor-wait"
         >
-          <ImageIcon /> screenshot.png
-        </a>
+          <ImageIcon />
+          {downloadingFrames ? 'Saving…' : '5 page sections'}
+        </button>
       </div>
 
       {/* Copy row */}
@@ -76,7 +102,7 @@ export function DownloadButtons({ sessionId, designMdContent, promptMdContent }:
       </div>
 
       <p className="text-[10px] text-white/25 leading-relaxed px-1">
-        Drop all three into Claude Code, Cursor, or v0 — attach the screenshot as an image for best layout accuracy.
+        Drop the two files into v0 or Claude Code. Attach the 5 section images for best layout accuracy.
       </p>
     </div>
   );
