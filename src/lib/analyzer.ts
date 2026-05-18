@@ -158,7 +158,7 @@ async function callGroq(
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+      model: 'llama-3.2-11b-vision-preview',
       messages: [
         {
           role: 'user',
@@ -202,7 +202,7 @@ async function callOpenRouter(
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'qwen/qwen2.5-vl-72b-instruct',
+      model: 'meta-llama/llama-3.2-11b-vision-instruct:free',
       messages: [
         {
           role: 'user',
@@ -300,12 +300,12 @@ export async function analyzeDesign(
         // Groq fallback (free tier, vision-capable)
         try {
           rawResponse = await callGroq(screenshotBase64, trimmedJson);
-          modelUsed = 'meta-llama/llama-4-scout-17b-16e-instruct';
+          modelUsed = 'llama-3.2-11b-vision-preview';
         } catch {
           // OpenRouter last resort
           try {
             rawResponse = await callOpenRouter(screenshotBase64, trimmedJson);
-            modelUsed = 'qwen/qwen2.5-vl-72b-instruct';
+            modelUsed = 'meta-llama/llama-3.2-11b-vision-instruct:free';
           } catch {
             throw new Error(`All AI providers failed. Last error: ${sanitizeError(geminiErr)}`);
           }
@@ -318,12 +318,21 @@ export async function analyzeDesign(
     try {
       designSystem = parseDesignSystem(rawResponse);
     } catch {
-      // Retry once with stricter prompt
+      // Malformed JSON — retry with a stricter prompt through the same fallback chain
       const retryParts: Part[] = [
         ...parts.slice(0, -1),
-        { text: 'IMPORTANT: Return ONLY a raw JSON object. No text before or after. No markdown.' },
+        { text: 'IMPORTANT: Your previous response was not valid JSON. Return ONLY a raw JSON object. No text before or after. No markdown fences. Start with { and end with }.' },
       ];
-      const retryResponse = await callGemini(retryParts, model, 0.1);
+      let retryResponse: string;
+      try {
+        retryResponse = await callGemini(retryParts, model, 0.1);
+      } catch {
+        try {
+          retryResponse = await callGroq(screenshotBase64, trimmedJson);
+        } catch {
+          retryResponse = await callOpenRouter(screenshotBase64, trimmedJson);
+        }
+      }
       designSystem = parseDesignSystem(retryResponse);
       rawResponse = retryResponse;
     }
