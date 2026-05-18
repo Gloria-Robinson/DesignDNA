@@ -44,15 +44,15 @@ export async function extractDesign(url: string, sessionId: string): Promise<Ext
 
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
 
-    // Allow up to 8s for network to settle — many sites never reach true networkidle
+    // Allow up to 5s for network to settle — many sites never reach true networkidle
     try {
-      await page.waitForLoadState('networkidle', { timeout: 8000 });
+      await page.waitForLoadState('networkidle', { timeout: 5000 });
     } catch {
       // Proceed — page is loaded, ongoing background requests are fine
     }
 
-    // Extra wait for JS-rendered content to fully mount and expand the page
-    await page.waitForTimeout(1500);
+    // Wait for JS-rendered content to expand the DOM
+    await page.waitForTimeout(800);
 
     // Full-page screenshot
     const screenshotPath = path.join(outputDir, 'screenshot.png');
@@ -141,7 +141,7 @@ export async function extractDesign(url: string, sessionId: string): Promise<Ext
       const scrollY = Math.floor(pageHeight * framePositions[i]);
       await page.evaluate((y: number) => window.scrollTo({ top: y, behavior: 'instant' }), scrollY);
       // Wait for lazy-loaded images/components to appear at this scroll depth
-      await page.waitForTimeout(400);
+      await page.waitForTimeout(200);
       const framePath = path.join(outputDir, `frame-${i}.jpg`);
       await page.screenshot({ path: framePath, type: 'jpeg', quality: 75 });
       framePaths.push(framePath);
@@ -150,14 +150,14 @@ export async function extractDesign(url: string, sessionId: string): Promise<Ext
     // ── Video scroll simulation ──────────────────────────────────────────────
     // Reset to top, then do a slow realistic scroll so the video shows all sections
     await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
-    await page.waitForTimeout(600);
+    await page.waitForTimeout(300);
 
     // Position mouse in center of viewport — required for mouse.wheel to work
     await page.mouse.move(720, 450);
 
-    // 80px per tick @ 80ms = ~1000px/s — feels like natural slow scroll
-    const scrollStep = 80;
-    const stepDelay = 80;
+    // 120px per tick @ 60ms = ~2000px/s — covers full page without being too slow
+    const scrollStep = 120;
+    const stepDelay = 60;
     const totalSteps = Math.ceil(pageHeight / scrollStep);
 
     for (let i = 0; i < totalSteps; i++) {
@@ -165,19 +165,18 @@ export async function extractDesign(url: string, sessionId: string): Promise<Ext
       await page.waitForTimeout(stepDelay);
     }
 
-    // Pause at bottom before hover pass
-    await page.waitForTimeout(600);
+    await page.waitForTimeout(300);
 
-    // Hover over interactive elements to capture hover state animations
-    const interactiveSelectors = ['nav a', 'button', '[role="button"]', 'a[href]', '[class*="card"]'];
+    // Hover over key interactive elements to capture hover state animations
+    const interactiveSelectors = ['nav a', 'button', '[class*="card"]'];
     for (const selector of interactiveSelectors) {
       const els = await page.$$(selector);
-      for (const el of els.slice(0, 3)) {
+      for (const el of els.slice(0, 2)) {
         try {
           const box = await el.boundingBox();
           if (box) {
             await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-            await page.waitForTimeout(400);
+            await page.waitForTimeout(250);
           }
         } catch {
           // Element may have detached — skip

@@ -264,9 +264,9 @@ export async function analyzeDesign(
       elementCount: fullExtracted.elements?.length ?? 0,
     });
 
-    // Read 5 JPEG frames (top / 25% / mid / 75% / bottom)
+    // Read 3 JPEG frames (top / mid / bottom) — enough for AI, keeps payload small
     const frameBufs = await Promise.all(
-      [0, 1, 2, 3, 4].map(async i => {
+      [0, 2, 4].map(async i => {
         try {
           const buf = await fs.readFile(path.join(outputDir, `frame-${i}.jpg`));
           return buf.toString('base64');
@@ -293,21 +293,31 @@ export async function analyzeDesign(
     try {
       rawResponse = await callGemini(parts, model, 0.2);
     } catch (geminiErr) {
-      // Gemini retry with lower temperature
-      try {
-        rawResponse = await callGemini(parts, model, 0.1);
-      } catch {
-        // Groq fallback (free tier, vision-capable)
+      const geminiErrMsg = sanitizeError(geminiErr);
+      // If Gemini is rate-limited/quota, skip straight to fallbacks — don't waste another call
+      if (!isRateLimitError(geminiErr)) {
+        try {
+          rawResponse = await callGemini(parts, model, 0.1);
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        } catch (_retryErr) { /* fall through to Groq */ }
+      }
+
+      if (rawResponse! == null) {
+        // Groq fallback — free vision model
+        let groqErr = '';
         try {
           rawResponse = await callGroq(screenshotBase64, trimmedJson);
           modelUsed = 'llama-3.2-11b-vision-preview';
-        } catch {
+        } catch (err) {
+          groqErr = sanitizeError(err);
           // OpenRouter last resort
           try {
             rawResponse = await callOpenRouter(screenshotBase64, trimmedJson);
             modelUsed = 'meta-llama/llama-3.2-11b-vision-instruct:free';
-          } catch {
-            throw new Error(`All AI providers failed. Last error: ${sanitizeError(geminiErr)}`);
+          } catch (orErr) {
+            throw new Error(
+              `All AI providers failed.\nGemini: ${geminiErrMsg}\nGroq: ${groqErr}\nOpenRouter: ${sanitizeError(orErr)}`,
+            );
           }
         }
       }
