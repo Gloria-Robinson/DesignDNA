@@ -12,8 +12,9 @@ export function DownloadButtons({ sessionId, designMdContent, promptMdContent }:
   const [copiedDesign, setCopiedDesign] = useState(false);
   const [copiedPrompt, setCopiedPrompt] = useState(false);
 
-  const designUrl = `/api/download?sessionId=${encodeURIComponent(sessionId)}&file=design`;
-  const promptUrl = `/api/download?sessionId=${encodeURIComponent(sessionId)}&file=prompt`;
+  const designUrl     = `/api/download?sessionId=${encodeURIComponent(sessionId)}&file=design`;
+  const promptUrl     = `/api/download?sessionId=${encodeURIComponent(sessionId)}&file=prompt`;
+  const screenshotUrl = `/api/download?sessionId=${encodeURIComponent(sessionId)}&file=screenshot`;
 
   async function copyText(text: string, setDone: (v: boolean) => void) {
     try {
@@ -47,6 +48,11 @@ export function DownloadButtons({ sessionId, designMdContent, promptMdContent }:
         >
           <DownloadIcon /> prompt.md
         </a>
+        <a href={screenshotUrl} download="screenshot.png"
+          className="liquid-glass rounded-full h-9 px-5 text-xs font-medium text-white/70 flex items-center gap-2 hover:scale-105 active:scale-95 transition-transform duration-150"
+        >
+          <ImageIcon /> screenshot.png
+        </a>
       </div>
 
       {/* Copy row */}
@@ -70,7 +76,7 @@ export function DownloadButtons({ sessionId, designMdContent, promptMdContent }:
       </div>
 
       <p className="text-[10px] text-white/25 leading-relaxed px-1">
-        Paste both files into Claude Code, Cursor, or v0 together for best results.
+        Drop all three into Claude Code, Cursor, or v0 — attach the screenshot as an image for best layout accuracy.
       </p>
     </div>
   );
@@ -78,6 +84,9 @@ export function DownloadButtons({ sessionId, designMdContent, promptMdContent }:
 
 function DownloadIcon() {
   return <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 1v7M3.5 5.5 6 8l2.5-2.5M1.5 10h9" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" /></svg>;
+}
+function ImageIcon() {
+  return <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><rect x="1" y="2" width="10" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.2"/><circle cx="4" cy="5" r="1" fill="currentColor"/><path d="M1 8.5l2.5-2.5 2 2 2-2.5L11 9" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>;
 }
 function CopyIcon() {
   return <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><rect x="1" y="4" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.2"/><path d="M4 4V2.5A1.5 1.5 0 015.5 1h5A1.5 1.5 0 0112 2.5v5A1.5 1.5 0 0110.5 9H9" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>;
