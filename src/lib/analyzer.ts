@@ -12,36 +12,43 @@ const REQUIRED_FIELDS: (keyof DesignSystem)[] = [
 const SYSTEM_PROMPT = `You are a professional design systems analyst. Analyze the provided website screenshot, extracted CSS data, and scroll frames, then return a SINGLE valid JSON object describing the complete design system.
 
 Return ONLY the JSON object — no markdown fences, no explanation, no comments.
-Extract EXACT values — hex codes, px sizes, CSS values — not approximations.
+Extract EXACT values from the screenshot — hex codes, px sizes, CSS values — never guess or approximate.
 
-The JSON must match this exact structure:
+⚠️ CRITICAL — BACKGROUND COLOR RULE:
+Look at the screenshot carefully FIRST. Determine if the page background is LIGHT or DARK.
+- If the page body/hero background is WHITE or near-white → bg-primary MUST be "#ffffff" or the actual light hex.
+- If the page body/hero background is BLACK or near-black → bg-primary MUST be that dark hex.
+- MANY popular sites (Wise, Stripe light, Airbnb, Apple, Linear) are LIGHT themed with white/off-white backgrounds. Do NOT default to dark.
+- The text color should be the OPPOSITE of the background: light bg → dark text; dark bg → light text.
+
+The JSON must match this exact structure (replace ALL placeholder values with real extracted values):
 {
-  "siteName": "string",
-  "sourceUrl": "string",
+  "siteName": "string — actual site/brand name",
+  "sourceUrl": "string — URL from extracted data",
   "brandTone": ["adjective1", "adjective2", "adjective3"],
   "colors": [
-    { "token": "bg-primary", "hex": "#0a0a0a", "usage": "Main background" },
-    { "token": "text-primary", "hex": "#ffffff", "usage": "Headings and body" },
-    { "token": "text-secondary", "hex": "#8a8a9a", "usage": "Subtext, captions" },
-    { "token": "accent", "hex": "#635bff", "usage": "CTAs, links, highlights" },
-    { "token": "accent-secondary", "hex": "#00d4aa", "usage": "Secondary accent" },
-    { "token": "surface", "hex": "#1a1a2e", "usage": "Cards, panels" },
-    { "token": "border", "hex": "#2a2a3e", "usage": "Dividers, card borders" }
+    { "token": "bg-primary",      "hex": "#REPLACE_WITH_ACTUAL_BG",    "usage": "Main page background" },
+    { "token": "text-primary",    "hex": "#REPLACE_WITH_ACTUAL_TEXT",  "usage": "Headings and body text" },
+    { "token": "text-secondary",  "hex": "#REPLACE_WITH_MUTED_TEXT",   "usage": "Subtext, captions" },
+    { "token": "accent",          "hex": "#REPLACE_WITH_CTA_COLOR",    "usage": "CTAs, links, highlights" },
+    { "token": "accent-secondary","hex": "#REPLACE_WITH_2ND_ACCENT",   "usage": "Secondary accent or hover" },
+    { "token": "surface",         "hex": "#REPLACE_WITH_CARD_BG",      "usage": "Cards, panels, sections" },
+    { "token": "border",          "hex": "#REPLACE_WITH_BORDER",       "usage": "Dividers, card borders" }
   ],
   "gradients": [
-    { "name": "hero-bg", "value": "linear-gradient(135deg, #0a0a1a 0%, #1a0a3a 50%, #0a2a1a 100%)", "usage": "Hero section background" },
-    { "name": "accent-text", "value": "linear-gradient(90deg, #7c3aed 0%, #2563eb 100%)", "usage": "Gradient on headline accent word" }
+    { "name": "hero-bg",     "value": "CSS gradient value if present, else omit this array", "usage": "Hero background" },
+    { "name": "accent-text", "value": "CSS gradient value if text uses gradient, else omit", "usage": "Gradient headline text" }
   ],
   "background": {
-    "type": "gradient-mesh",
-    "value": "radial-gradient(ellipse at 70% 40%, rgba(99,91,255,0.18) 0%, transparent 55%), radial-gradient(ellipse at 20% 80%, rgba(0,212,170,0.12) 0%, transparent 50%), #0a0a0a",
-    "effect": "Dark background with subtle radial gradient glows — purple top-right, teal bottom-left"
+    "type": "solid | gradient-mesh | image | video",
+    "value": "Full CSS background value for the hero section",
+    "effect": "Plain English description of the background visual"
   },
   "typography": {
-    "fontFamily": "string",
-    "fallback": "string",
+    "fontFamily": "Actual font name from CSS (e.g. Inter, Sohne, Graphik, TWK Everett)",
+    "fallback": "sans-serif or serif depending on the font",
     "scaleRatio": "1.25",
-    "sizes": [14, 18, 23, 29, 36, 48, 64, 80],
+    "sizes": [14, 16, 18, 24, 32, 48, 64, 80],
     "body": { "size": 18, "weight": 400, "lineHeight": "1.6" },
     "h1": { "size": 72, "weight": 700, "lineHeight": "1.05" },
     "h2": { "size": 48, "weight": 700, "lineHeight": "1.1" },
@@ -56,7 +63,7 @@ The JSON must match this exact structure:
   "motion": {
     "pageLoad": [{ "element": "hero", "animation": "fade-up", "duration": "0.6s", "easing": "ease-out" }],
     "scroll": [{ "element": "cards", "description": "fade in on enter" }],
-    "hover": { "buttons": "background darkens 0.2s", "cards": "translateY(-4px) 0.3s", "navLinks": "underline 0.2s" },
+    "hover": { "buttons": "background darkens 0.2s", "cards": "translateY(-4px) 0.3s", "navLinks": "opacity increases 0.15s" },
     "click": "scale(0.97) 0.1s"
   },
   "layout": {
@@ -68,20 +75,22 @@ The JSON must match this exact structure:
   "components": {
     "cards": { "radius": "12px", "shadow": "0 4px 24px rgba(0,0,0,0.08)", "border": "1px solid #e5e7eb" },
     "buttons": { "shape": "rounded-full", "padding": "12px 28px", "style": "filled with accent color" },
-    "navigation": { "position": "sticky", "blur": true, "border": "1px solid rgba(0,0,0,0.08)" },
-    "badges": { "shape": "rounded-full", "padding": "6px 14px", "style": "border 1px solid rgba(255,255,255,0.15), transparent bg, small text" },
-    "inputs": { "radius": "6px", "border": "1px solid rgba(255,255,255,0.1)", "background": "rgba(255,255,255,0.05)" }
+    "navigation": { "position": "sticky", "blur": false, "border": "1px solid rgba(0,0,0,0.08)" },
+    "badges": { "shape": "rounded-full", "padding": "6px 14px", "style": "border, transparent bg" },
+    "inputs": { "radius": "6px", "border": "1px solid #e5e7eb", "background": "#ffffff" }
   }
 }
 
-Important extraction rules:
-- colors: Extract 6–10 distinct colors. Use EXACT hex values from the screenshot, not guesses.
-- gradients: If the hero has a gradient background or gradient-colored text, capture the EXACT CSS gradient value.
-- background: Describe the full hero background CSS — radial glows, mesh gradients, base color.
-- typography.fontFamily: Identify the actual font name (e.g. "Sohne", "Inter", "Graphik") from CSS data.
-- typography.letterSpacing: Measure tight heading tracking (usually -0.01em to -0.04em on modern sites).
-- components.badges: Look for pill-shaped announcement bars or tags (common in SaaS heroes).
-- All px sizes must be integers. All hex values must be valid 6-digit hex.`;
+Extraction rules:
+- bg-primary: The DOMINANT page background color. Look at the body/html background in the CSS data AND the screenshot. If it looks white/cream/light → use that light hex.
+- text-primary: The main body/heading text color. On a light site this will be near-black (#111, #1a1a1a, etc).
+- accent: The brand's primary color used on CTAs and key interactive elements.
+- gradients: Only include if gradients are actually visible on the site. If no gradient → omit the gradients field entirely.
+- background: Only include if the hero has a non-solid background effect. Solid color → omit this field.
+- navigation.blur: Set true ONLY if nav has frosted glass / backdrop-filter effect.
+- typography.fontFamily: Read font-family from the CSS data — use the actual font name, not a generic fallback.
+- typography.letterSpacing: Measure from the CSS data. Minimal/editorial sites have tight tracking (-0.02em to -0.05em). Friendly/rounded sites may have 0 or positive tracking.
+- All hex values must be valid 6-digit hex starting with #. All px sizes must be integers.`;
 
 function parseDesignSystem(raw: string): DesignSystem {
   const cleaned = raw

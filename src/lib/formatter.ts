@@ -267,41 +267,49 @@ ${colorTokens}
   const animBlock = hasEntranceAnim ? `
 ## Animations
 
-### Framer Motion variants
-\`\`\`javascript
+### Framer Motion — copy-paste ready
+\`\`\`tsx
+import { motion } from 'framer-motion';
+
+// Reusable variants — no TypeScript errors
 const fadeUp = {
   hidden:  { opacity: 0, y: 20, filter: 'blur(8px)' },
-  visible: (i = 0) => ({
-    opacity: 1, y: 0, filter: 'blur(0px)',
-    transition: { duration: 0.6, ease: [0.16, 1, 0.3, 1], delay: i * 0.1 },
-  }),
+  visible: { opacity: 1, y: 0, filter: 'blur(0px)',
+             transition: { duration: 0.6, ease: [0.16, 1, 0.3, 1] as const } },
 };
 const stagger = {
   hidden:  {},
-  visible: { transition: { staggerChildren: 0.08, delayChildren: 0.25 } },
+  visible: { transition: { staggerChildren: 0.09, delayChildren: 0.2 } },
 };
 
-// Wrap each section's content:
-// <motion.div variants={stagger} initial="hidden" whileInView="visible" viewport={{ once: true }}>
-//   <motion.h1 variants={fadeUp} custom={0}>Headline</motion.h1>
-//   <motion.p  variants={fadeUp} custom={1}>Body</motion.p>
-//   <motion.div variants={fadeUp} custom={2}>CTAs</motion.div>
+// Wrap section content — each child gets staggered automatically:
+// <motion.div variants={stagger} initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.2 }}>
+//   <motion.h1  variants={fadeUp}>Headline</motion.h1>
+//   <motion.p   variants={fadeUp}>Body text</motion.p>
+//   <motion.div variants={fadeUp}>CTAs</motion.div>
 // </motion.div>
+
+// For a custom per-item delay, override transition inline:
+// <motion.div variants={fadeUp} transition={{ delay: 0.3 }}>...</motion.div>
 \`\`\`
 
-### CSS-only fallback (no framework)
+### CSS-only fallback (no framework needed)
 \`\`\`css
 .reveal {
-  opacity: 0; transform: translateY(20px); filter: blur(6px);
-  transition: opacity 0.6s, transform 0.6s, filter 0.6s;
-  transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  opacity: 0;
+  transform: translateY(20px);
+  filter: blur(6px);
+  transition: opacity 0.6s cubic-bezier(0.16,1,0.3,1),
+              transform 0.6s cubic-bezier(0.16,1,0.3,1),
+              filter 0.5s ease;
 }
 .reveal.visible { opacity: 1; transform: translateY(0); filter: none; }
+/* Stagger: add [style="transition-delay: Xms"] to each child */
 \`\`\`
 \`\`\`javascript
 const io = new IntersectionObserver(
   entries => entries.forEach(e => e.isIntersecting && e.target.classList.add('visible')),
-  { threshold: 0.1 }
+  { threshold: 0.15 }
 );
 document.querySelectorAll('.reveal').forEach(el => io.observe(el));
 \`\`\`` : '';
