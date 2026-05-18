@@ -116,22 +116,31 @@ function isRateLimitError(err: unknown): boolean {
   return msg.includes('429') || msg.toLowerCase().includes('quota') || msg.toLowerCase().includes('exhausted');
 }
 
-/** Converts raw API error strings (often JSON blobs) into a short, readable phrase. */
+/** Converts raw API error strings (often JSON blobs) into a short, readable phrase.
+ *  Works even on truncated JSON (sanitizeError caps at 200 chars). */
 function humanizeProviderError(raw: string): string {
-  // Many providers return JSON like {"error":{"code":429,"message":"..."}}
+  // Try exact JSON.parse first (succeeds when the error isn't truncated)
   try {
     const parsed = JSON.parse(raw) as { error?: { code?: number; message?: string } };
     if (parsed.error?.message) {
       const code = parsed.error.code;
-      const msg = parsed.error.message.split('.')[0]; // first sentence only
+      const msg = parsed.error.message.split('.')[0];
       if (code === 429) return `quota exceeded — ${msg}`;
-      return `error ${code ?? ''}: ${msg}`;
+      return msg;
     }
-  } catch { /* not JSON */ }
+  } catch { /* truncated JSON — fall through to regex */ }
 
-  // Already a plain string — truncate to one sentence
-  const firstSentence = raw.split(/[.\n]/)[0].trim();
-  return firstSentence.length > 120 ? firstSentence.slice(0, 120) + '…' : firstSentence;
+  // Regex extraction works even when sanitizeError has cut the JSON mid-string
+  const msgMatch = raw.match(/"message"\s*:\s*"([^"]*)/);
+  if (msgMatch?.[1]) {
+    const msg = msgMatch[1].split('.')[0].trim();
+    const isQuota = /("code"\s*:\s*429|quota|429)/.test(raw);
+    if (msg) return isQuota ? `quota exceeded — ${msg}` : msg;
+  }
+
+  // Plain English error (e.g. "GROQ_API_KEY is not set", "OpenRouter error: 404")
+  const sentence = raw.split(/[.\n]/)[0].trim();
+  return sentence.length > 100 ? sentence.slice(0, 100) + '…' : sentence;
 }
 
 type Part = { text: string } | { inlineData: { mimeType: string; data: string } };
@@ -183,7 +192,7 @@ async function callGroq(
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'llama-3.2-11b-vision-preview',
+      model: 'meta-llama/llama-4-scout-17b-16e-instruct',
       messages: [
         {
           role: 'user',
@@ -233,7 +242,7 @@ async function callOpenRouter(
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'meta-llama/llama-3.2-11b-vision-instruct:free',
+      model: 'meta-llama/llama-4-scout:free',
       messages: [
         {
           role: 'user',
@@ -346,7 +355,7 @@ export async function analyzeDesign(
         let groqErr = '';
         try {
           rawResponse = await callGroq(validFrames, trimmedJson);
-          modelUsed = 'llama-3.2-11b-vision-preview';
+          modelUsed = 'meta-llama/llama-4-scout-17b-16e-instruct';
           await log('INFO', 'analyze:groq:ok', { sessionId });
         } catch (err) {
           groqErr = sanitizeError(err);
@@ -354,7 +363,7 @@ export async function analyzeDesign(
           // OpenRouter last resort
           try {
             rawResponse = await callOpenRouter(validFrames, trimmedJson);
-            modelUsed = 'meta-llama/llama-3.2-11b-vision-instruct:free';
+            modelUsed = 'meta-llama/llama-4-scout:free';
             await log('INFO', 'analyze:openrouter:ok', { sessionId });
           } catch (orErr) {
             const orErrMsg = sanitizeError(orErr);
