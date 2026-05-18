@@ -145,11 +145,17 @@ async function callGemini(
 }
 
 async function callGroq(
-  screenshotBase64: string,
+  frames: string[],
   extractedJson: string,
 ): Promise<string> {
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey || apiKey === 'your_key_here') throw new Error('GROQ_API_KEY is not set');
+
+  // Send up to 2 JPEG frames (small viewport screenshots, not full-page PNG)
+  const imageContent = frames.slice(0, 2).map(f => ({
+    type: 'image_url' as const,
+    image_url: { url: `data:image/jpeg;base64,${f}` },
+  }));
 
   const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
@@ -164,7 +170,7 @@ async function callGroq(
           role: 'user',
           content: [
             { type: 'text', text: SYSTEM_PROMPT },
-            { type: 'image_url', image_url: { url: `data:image/png;base64,${screenshotBase64}` } },
+            ...imageContent,
             { type: 'text', text: `EXTRACTED CSS TOKENS:\n${extractedJson}` },
             { type: 'text', text: 'Return ONLY the JSON object. No markdown, no explanation.' },
           ],
@@ -189,11 +195,17 @@ async function callGroq(
 }
 
 async function callOpenRouter(
-  screenshotBase64: string,
+  frames: string[],
   extractedJson: string,
 ): Promise<string> {
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) throw new Error('OPENROUTER_API_KEY is not set');
+
+  // Send up to 2 JPEG frames (small viewport screenshots, not full-page PNG)
+  const imageContent = frames.slice(0, 2).map(f => ({
+    type: 'image_url' as const,
+    image_url: { url: `data:image/jpeg;base64,${f}` },
+  }));
 
   const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',
@@ -208,7 +220,7 @@ async function callOpenRouter(
           role: 'user',
           content: [
             { type: 'text', text: SYSTEM_PROMPT },
-            { type: 'image_url', image_url: { url: `data:image/png;base64,${screenshotBase64}` } },
+            ...imageContent,
             { type: 'text', text: `EXTRACTED CSS DATA:\n${extractedJson}` },
             { type: 'text', text: 'Return ONLY the JSON object.' },
           ],
@@ -287,7 +299,9 @@ export async function analyzeDesign(
       { text: 'Return ONLY the JSON object. No markdown, no explanation.' },
     ];
 
-    let rawResponse: string;
+    const validFrames = frameBufs.filter((b): b is string => b !== null);
+
+    let rawResponse = '';
     let modelUsed = model;
 
     try {
@@ -302,17 +316,17 @@ export async function analyzeDesign(
         } catch (_retryErr) { /* fall through to Groq */ }
       }
 
-      if (rawResponse! == null) {
-        // Groq fallback — free vision model
+      if (!rawResponse) {
+        // Groq fallback — sends JPEG frames (much smaller than full-page PNG)
         let groqErr = '';
         try {
-          rawResponse = await callGroq(screenshotBase64, trimmedJson);
+          rawResponse = await callGroq(validFrames, trimmedJson);
           modelUsed = 'llama-3.2-11b-vision-preview';
         } catch (err) {
           groqErr = sanitizeError(err);
           // OpenRouter last resort
           try {
-            rawResponse = await callOpenRouter(screenshotBase64, trimmedJson);
+            rawResponse = await callOpenRouter(validFrames, trimmedJson);
             modelUsed = 'meta-llama/llama-3.2-11b-vision-instruct:free';
           } catch (orErr) {
             throw new Error(
@@ -338,9 +352,9 @@ export async function analyzeDesign(
         retryResponse = await callGemini(retryParts, model, 0.1);
       } catch {
         try {
-          retryResponse = await callGroq(screenshotBase64, trimmedJson);
+          retryResponse = await callGroq(validFrames, trimmedJson);
         } catch {
-          retryResponse = await callOpenRouter(screenshotBase64, trimmedJson);
+          retryResponse = await callOpenRouter(validFrames, trimmedJson);
         }
       }
       designSystem = parseDesignSystem(retryResponse);

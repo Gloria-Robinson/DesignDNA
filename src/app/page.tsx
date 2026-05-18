@@ -185,7 +185,7 @@ export default function HomePage() {
               <div className="flex-1 flex flex-col items-center justify-center px-6 pb-10 animate-fade-up gap-6">
                 <LoadingState steps={steps} />
                 <div className="liquid-glass rounded-2xl px-5 py-4 max-w-sm w-full">
-                  <p className="text-sm text-red-300">{errorMessage}</p>
+                  <p className="text-sm text-red-300 whitespace-pre-wrap">{errorMessage}</p>
                 </div>
                 <button
                   onClick={handleReset}
