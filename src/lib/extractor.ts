@@ -109,12 +109,37 @@ export async function extractDesign(url: string, sessionId: string): Promise<Ext
         return { selector, tagName, properties: props };
       });
 
+      // Collect logo/image URLs from nav, press, partner, and footer sections
+      // These give AI tools actual URLs instead of guessing logo names as text
+      const LOGO_SELECTORS = [
+        'nav', 'header', 'footer',
+        '[class*="press"]', '[class*="logo"]', '[class*="partner"]',
+        '[class*="media"]', '[class*="brand"]', '[class*="trusted"]',
+        '[class*="client"]', '[class*="seen"]', '[class*="feature"]',
+        '[class*="sponsor"]', '[class*="award"]',
+      ].join(',');
+
+      const logoImages: Array<{ src: string; alt: string; context: string }> = [];
+      const seenSrcs = new Set<string>();
+
+      document.querySelectorAll(LOGO_SELECTORS).forEach(section => {
+        const context = section.tagName.toLowerCase() +
+          (section.className ? '.' + String(section.className).trim().split(/\s+/)[0] : '');
+        section.querySelectorAll('img').forEach(img => {
+          const src = img.src;
+          if (!src || src.startsWith('data:') || seenSrcs.has(src)) return;
+          seenSrcs.add(src);
+          logoImages.push({ src, alt: img.alt ?? '', context });
+        });
+      });
+
       return {
         elements: extractedElements,
         colorPalette: Array.from(colorSet).slice(0, 30),
         fontFamilies: Array.from(fontSet).slice(0, 10),
         spacingValues: Array.from(spacingSet).slice(0, 30),
         animationTokens: Array.from(animSet).slice(0, 20),
+        logoImages: logoImages.slice(0, 30),
       };
     });
 
@@ -127,6 +152,7 @@ export async function extractDesign(url: string, sessionId: string): Promise<Ext
       fontFamilies: rawExtracted.fontFamilies,
       spacingValues: rawExtracted.spacingValues,
       animationTokens: rawExtracted.animationTokens,
+      logoImages: rawExtracted.logoImages as ExtractedCSS['logoImages'],
     };
 
     const extractedDataPath = path.join(outputDir, 'extracted.json');

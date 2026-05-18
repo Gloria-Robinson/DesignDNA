@@ -36,20 +36,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: result.error }, { status: 500 });
     }
 
-    // Read original URL from extracted.json to pass to formatter
+    // Read URL + logo images from extracted.json to pass to formatter
     const outputDir = getOutputDir(sessionId);
     let sourceUrl = '';
+    let logoImages: Array<{ src: string; alt: string; context: string }> = [];
     try {
       const extracted = JSON.parse(
         await fs.readFile(path.join(outputDir, 'extracted.json'), 'utf-8'),
-      ) as { url?: string };
+      ) as { url?: string; logoImages?: typeof logoImages };
       sourceUrl = extracted.url ?? '';
+      logoImages = extracted.logoImages ?? [];
     } catch {
       sourceUrl = '';
     }
 
-    const designMd = formatDesignMd(result.designSystem, sourceUrl);
-    const promptMd = formatPromptMd(result.designSystem, designMd);
+    const designMd = formatDesignMd(result.designSystem, sourceUrl, logoImages);
+    const promptMd = formatPromptMd(result.designSystem, designMd, logoImages);
 
     const designMdPath = path.join(outputDir, 'design.md');
     const promptMdPath = path.join(outputDir, 'prompt.md');

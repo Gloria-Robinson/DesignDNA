@@ -24,6 +24,12 @@ export type ElementData = {
   properties: CSSPropertyMap;
 };
 
+export type LogoImage = {
+  src: string;
+  alt: string;
+  context: string; // which section it came from (nav, press, footer, etc.)
+};
+
 export type ExtractedCSS = {
   url: string;
   timestamp: string;
@@ -33,6 +39,7 @@ export type ExtractedCSS = {
   fontFamilies: string[];
   spacingValues: string[];
   animationTokens: string[];
+  logoImages: LogoImage[];
 };
 
 export type ExtractionResult = {

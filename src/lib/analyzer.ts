@@ -91,7 +91,8 @@ Extraction rules:
 - navigation.blur: Set true ONLY if nav has frosted glass / backdrop-filter effect.
 - typography.fontFamily: Read font-family from the CSS data — use the actual font name, not a generic fallback.
 - typography.letterSpacing: Measure from the CSS data. Minimal/editorial sites have tight tracking (-0.02em to -0.05em). Friendly/rounded sites may have 0 or positive tracking.
-- All hex values must be valid 6-digit hex starting with #. All px sizes must be integers.`;
+- All hex values must be valid 6-digit hex starting with #. All px sizes must be integers.
+- logoImages in the extracted data are REAL image URLs scraped from the page. Reference these exact URLs in your output — do NOT fabricate or substitute image URLs. They include logos in the navbar, press/media mentions, partner logos, and footer logos.`;
 
 function parseDesignSystem(raw: string): DesignSystem {
   const cleaned = raw
@@ -295,6 +296,7 @@ export async function analyzeDesign(
       fontFamilies?: string[];
       spacingValues?: string[];
       animationTokens?: string[];
+      logoImages?: Array<{ src: string; alt: string; context: string }>;
       elements?: unknown[];
     };
     const trimmedJson = JSON.stringify({
@@ -303,6 +305,7 @@ export async function analyzeDesign(
       fontFamilies: fullExtracted.fontFamilies,
       spacingValues: fullExtracted.spacingValues,
       animationTokens: fullExtracted.animationTokens,
+      logoImages: fullExtracted.logoImages ?? [],
       elementCount: fullExtracted.elements?.length ?? 0,
     });
 

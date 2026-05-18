@@ -77,7 +77,9 @@ function googleFontUrl(fontFamily: string): string {
 
 // ── design.md ─────────────────────────────────────────────────────────────────
 
-export function formatDesignMd(system: DesignSystem, sourceUrl: string): string {
+type LogoImage = { src: string; alt: string; context: string };
+
+export function formatDesignMd(system: DesignSystem, sourceUrl: string, logoImages: LogoImage[] = []): string {
   const colorTable = system.colors
     .map(c => `| ${c.token.padEnd(18)} | \`${c.hex}\` | ${c.usage} |`)
     .join('\n');
@@ -165,12 +167,12 @@ ${motionScroll || '- No scroll animations detected'}
 - Cards: radius \`${system.components.cards.radius}\`, shadow \`${system.components.cards.shadow}\`, border \`${system.components.cards.border}\`
 - Buttons: ${system.components.buttons.shape}, padding \`${system.components.buttons.padding}\`, ${system.components.buttons.style}
 - Navigation: ${system.components.navigation.position}${system.components.navigation.blur ? ', backdrop-blur' : ''}, border \`${system.components.navigation.border}\`
-${badgesLine}${inputsLine}`;
+${badgesLine}${inputsLine}${logoImages.length > 0 ? `\n## Image Assets\nThese are real image URLs scraped from the page — use them exactly as-is in \`<img>\` tags:\n\n${logoImages.map(l => `- **${l.alt || 'image'}** (${l.context}): \`${l.src}\``).join('\n')}\n` : ''}`;
 }
 
 // ── prompt.md ─────────────────────────────────────────────────────────────────
 
-export function formatPromptMd(system: DesignSystem, designMd: string): string {
+export function formatPromptMd(system: DesignSystem, designMd: string, logoImages: LogoImage[] = []): string {
   const bgHex = system.colors.find(c => c.token.includes('bg'))?.hex ?? '#ffffff';
   const textHex = system.colors.find(c => c.token.includes('text-primary'))?.hex ?? (isDarkColor(bgHex) ? '#ffffff' : '#111111');
   const accentHex = system.colors.find(c => c.token.includes('accent') && !c.token.includes('secondary'))?.hex ?? '#0066ff';
@@ -555,5 +557,13 @@ ${animBlock}
 - Skip hover/focus states on any interactive element
 - Change font sizes — use the exact values above
 - Add visual elements not in this spec — whitespace is intentional
-`;
+${logoImages.length > 0 ? `
+---
+
+## Image Assets (real URLs — use these exactly)
+
+These image URLs were scraped directly from the live site. Use them in \`<img src="...">\` tags — do NOT substitute placeholders, fabricate paths, or use different URLs.
+
+${logoImages.map(l => `- **${l.alt || 'image'}** — \`${l.src}\``).join('\n')}
+` : ''}`;
 }
