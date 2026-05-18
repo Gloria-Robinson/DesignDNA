@@ -2,6 +2,7 @@ import { GoogleGenAI } from '@google/genai';
 import { promises as fs } from 'fs';
 import path from 'path';
 import { getOutputDir, sanitizeError, sleep } from '@/lib/utils';
+import { log } from '@/lib/logger';
 import type { AnalysisResult, DesignSystem } from '@/types/analysis';
 
 const REQUIRED_FIELDS: (keyof DesignSystem)[] = [
@@ -113,6 +114,24 @@ function parseDesignSystem(raw: string): DesignSystem {
 function isRateLimitError(err: unknown): boolean {
   const msg = err instanceof Error ? err.message : String(err);
   return msg.includes('429') || msg.toLowerCase().includes('quota') || msg.toLowerCase().includes('exhausted');
+}
+
+/** Converts raw API error strings (often JSON blobs) into a short, readable phrase. */
+function humanizeProviderError(raw: string): string {
+  // Many providers return JSON like {"error":{"code":429,"message":"..."}}
+  try {
+    const parsed = JSON.parse(raw) as { error?: { code?: number; message?: string } };
+    if (parsed.error?.message) {
+      const code = parsed.error.code;
+      const msg = parsed.error.message.split('.')[0]; // first sentence only
+      if (code === 429) return `quota exceeded — ${msg}`;
+      return `error ${code ?? ''}: ${msg}`;
+    }
+  } catch { /* not JSON */ }
+
+  // Already a plain string — truncate to one sentence
+  const firstSentence = raw.split(/[.\n]/)[0].trim();
+  return firstSentence.length > 120 ? firstSentence.slice(0, 120) + '…' : firstSentence;
 }
 
 type Part = { text: string } | { inlineData: { mimeType: string; data: string } };
@@ -248,6 +267,8 @@ export async function analyzeDesign(
   model = 'gemini-2.0-flash',
 ): Promise<AnalysisResult> {
   const outputDir = getOutputDir(sessionId);
+  const t0 = Date.now();
+  await log('INFO', 'analyze:start', { sessionId, model });
 
   try {
     // Read screenshot and extracted data
@@ -306,12 +327,16 @@ export async function analyzeDesign(
 
     try {
       rawResponse = await callGemini(parts, model, 0.2);
+      await log('INFO', 'analyze:gemini:ok', { sessionId });
     } catch (geminiErr) {
       const geminiErrMsg = sanitizeError(geminiErr);
+      await log('WARN', 'analyze:gemini:fail', { sessionId, error: geminiErrMsg });
+
       // If Gemini is rate-limited/quota, skip straight to fallbacks — don't waste another call
       if (!isRateLimitError(geminiErr)) {
         try {
           rawResponse = await callGemini(parts, model, 0.1);
+          await log('INFO', 'analyze:gemini:retry:ok', { sessionId });
           // eslint-disable-next-line @typescript-eslint/no-unused-vars
         } catch (_retryErr) { /* fall through to Groq */ }
       }
@@ -322,15 +347,25 @@ export async function analyzeDesign(
         try {
           rawResponse = await callGroq(validFrames, trimmedJson);
           modelUsed = 'llama-3.2-11b-vision-preview';
+          await log('INFO', 'analyze:groq:ok', { sessionId });
         } catch (err) {
           groqErr = sanitizeError(err);
+          await log('WARN', 'analyze:groq:fail', { sessionId, error: groqErr });
           // OpenRouter last resort
           try {
             rawResponse = await callOpenRouter(validFrames, trimmedJson);
             modelUsed = 'meta-llama/llama-3.2-11b-vision-instruct:free';
+            await log('INFO', 'analyze:openrouter:ok', { sessionId });
           } catch (orErr) {
+            const orErrMsg = sanitizeError(orErr);
+            await log('ERROR', 'analyze:all_providers_failed', {
+              sessionId,
+              gemini: geminiErrMsg,
+              groq: groqErr,
+              openrouter: orErrMsg,
+            });
             throw new Error(
-              `All AI providers failed.\nGemini: ${geminiErrMsg}\nGroq: ${groqErr}\nOpenRouter: ${sanitizeError(orErr)}`,
+              `All AI providers failed.\n• Gemini: ${humanizeProviderError(geminiErrMsg)}\n• Groq: ${humanizeProviderError(groqErr)}\n• OpenRouter: ${humanizeProviderError(orErrMsg)}`,
             );
           }
         }
@@ -361,6 +396,9 @@ export async function analyzeDesign(
       rawResponse = retryResponse;
     }
 
+    const durationMs = Date.now() - t0;
+    await log('INFO', 'analyze:done', { sessionId, modelUsed, durationMs });
+
     return {
       success: true,
       designSystem,
@@ -368,10 +406,13 @@ export async function analyzeDesign(
       rawResponse,
     };
   } catch (err) {
+    const durationMs = Date.now() - t0;
+    const errMsg = err instanceof Error ? err.message : sanitizeError(err);
+    await log('ERROR', 'analyze:error', { sessionId, durationMs, error: errMsg });
     return {
       success: false,
       designSystem: null as unknown as DesignSystem,
-      error: sanitizeError(err),
+      error: errMsg,
     };
   }
 }

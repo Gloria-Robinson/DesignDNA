@@ -39,6 +39,7 @@ yarn-error.log*
 # generated outputs
 /outputs/
 /videos/
+/logs/
 
 # typescript
 *.tsbuildinfo

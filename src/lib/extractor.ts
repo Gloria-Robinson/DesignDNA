@@ -2,6 +2,7 @@ import { chromium } from 'playwright';
 import { promises as fs } from 'fs';
 import path from 'path';
 import { ensureDir, getOutputDir, getVideoDir, sanitizeError } from '@/lib/utils';
+import { log } from '@/lib/logger';
 import type { ExtractedCSS, ExtractionResult } from '@/types/extraction';
 
 async function getFullPageHeight(page: import('playwright').Page): Promise<number> {
@@ -20,6 +21,8 @@ async function getFullPageHeight(page: import('playwright').Page): Promise<numbe
 export async function extractDesign(url: string, sessionId: string): Promise<ExtractionResult> {
   const outputDir = getOutputDir(sessionId);
   const sessionVideoDir = path.join(getVideoDir(), sessionId);
+  const t0 = Date.now();
+  await log('INFO', 'extract:start', { sessionId, url });
 
   await Promise.all([ensureDir(outputDir), ensureDir(sessionVideoDir)]);
 
@@ -203,6 +206,7 @@ export async function extractDesign(url: string, sessionId: string): Promise<Ext
       // Video move failure is non-fatal
     }
 
+    await log('INFO', 'extract:done', { sessionId, durationMs: Date.now() - t0 });
     return {
       success: true,
       sessionId,
@@ -215,6 +219,8 @@ export async function extractDesign(url: string, sessionId: string): Promise<Ext
     if (!contextClosed) {
       try { await browser.close(); } catch { /* already closed */ }
     }
+    const errMsg = sanitizeError(err);
+    await log('ERROR', 'extract:error', { sessionId, durationMs: Date.now() - t0, error: errMsg });
     return {
       success: false,
       sessionId,
@@ -222,7 +228,7 @@ export async function extractDesign(url: string, sessionId: string): Promise<Ext
       extractedDataPath: '',
       videoPath: '',
       framePaths: [],
-      error: sanitizeError(err),
+      error: errMsg,
     };
   }
 }
