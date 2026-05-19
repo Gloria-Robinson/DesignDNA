@@ -1,5 +1,11 @@
 import { mkdir } from 'fs/promises';
 import path from 'path';
+import { clsx, type ClassValue } from 'clsx';
+import { twMerge } from 'tailwind-merge';
+
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
 
 // SSRF block list — RFC1918 + loopback + link-local
 const BLOCKED_PATTERNS = [

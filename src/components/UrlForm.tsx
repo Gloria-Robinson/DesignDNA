@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, type FormEvent } from 'react';
+import { LiquidButton } from '@/components/ui/liquid-glass-button';
 
 interface UrlFormProps {
   onSubmit: (url: string) => void;
@@ -41,23 +42,18 @@ export function UrlForm({ onSubmit, isLoading }: UrlFormProps) {
         "
         style={{ fontSize: '16px' /* prevents iOS zoom */ }}
       />
-      <button
+      <LiquidButton
         type="submit"
         disabled={isLoading}
-        className="
-          liquid-glass-strong w-full h-14 rounded-2xl text-base font-medium text-white
-          hover:scale-[1.02] active:scale-[0.98]
-          transition-transform duration-150
-          disabled:opacity-40 disabled:cursor-not-allowed
-        "
+        className="w-full h-14 rounded-2xl text-base font-semibold text-white disabled:opacity-40 disabled:cursor-not-allowed"
       >
         {isLoading ? (
           <span className="flex items-center justify-center gap-2.5">
             <span className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin inline-block" />
             Extracting…
           </span>
-        ) : 'Explore Now'}
-      </button>
+        ) : 'Extract Design DNA'}
+      </LiquidButton>
       {error && <p className="text-xs text-red-300/80 pl-2">{error}</p>}
     </form>
   );
